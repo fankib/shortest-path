@@ -300,9 +300,9 @@ class ShortestPathOptimizer:
                     p.y = p.y - self.lr*np.sum([g[1] for g in grads])
 
                     # iterative backproject                            
-                    if self.backproject:
-                        for tp_function in tp_functions:
-                            tp_function.backproject()
+                    #if self.backproject:
+                    #    for tp_function in tp_functions:
+                    #        tp_function.backproject()
 
                     # stop criteria (iterations without progress)
                     current_distance = path.distance()
