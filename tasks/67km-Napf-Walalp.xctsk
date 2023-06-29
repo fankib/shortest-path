@@ -1,0 +1,114 @@
+{
+  "version" : 1,
+  "taskType" : "CLASSIC",
+  "turnpoints" : [{
+       "radius" : 700.0,
+       "waypoint" : {
+         "lon" : 7.9089888888888895,
+         "lat" : 46.835819444444446,
+         "altSmoothed" : 1397.0,
+         "name" : "MARBACH_EGG",
+         "description" : "B901"
+       }
+       
+        ,
+        "type" : "TAKEOFF"
+       
+     },{
+       "radius" : 2500.0,
+       "waypoint" : {
+         "lon" : 7.9089888888888895,
+         "lat" : 46.835819444444446,
+         "altSmoothed" : 1397.0,
+         "name" : "MARBACH_EGG",
+         "description" : "B901"
+       }
+       
+        ,
+        "type" : "SSS"
+       
+     },{
+       "radius" : 5500.0,
+       "waypoint" : {
+         "lon" : 7.9072305555555555,
+         "lat" : 46.927211111111106,
+         "altSmoothed" : 1196.0,
+         "name" : "MARBACH_GLICHEN",
+         "description" : "B903"
+       }
+       
+     },{
+       "radius" : 3000.0,
+       "waypoint" : {
+         "lon" : 7.939719444444445,
+         "lat" : 47.00221944444444,
+         "altSmoothed" : 1369.0,
+         "name" : "MARBACH_NAPF",
+         "description" : "B904"
+       }
+       
+     },{
+       "radius" : 5000.0,
+       "waypoint" : {
+         "lon" : 7.687538888888889,
+         "lat" : 47.00501944444444,
+         "altSmoothed" : 586.0,
+         "name" : "MARBACH_LUTZELFLUH",
+         "description" : "B905"
+       }
+       
+     },{
+       "radius" : 5000.0,
+       "waypoint" : {
+         "lon" : 7.6404499999999995,
+         "lat" : 46.82226666666667,
+         "altSmoothed" : 1080.0,
+         "name" : "FALKENFLUH -HILL-ROCK-",
+         "description" : "B53"
+       }
+       
+     },{
+       "radius" : 3000.0,
+       "waypoint" : {
+         "lon" : 7.446925,
+         "lat" : 46.71996388888889,
+         "altSmoothed" : 1632.0,
+         "name" : "Gurnigel",
+         "description" : "B41"
+       }
+       
+     },{
+       "radius" : 400.0,
+       "waypoint" : {
+         "lon" : 7.509194444444445,
+         "lat" : 46.714261111111114,
+         "altSmoothed" : 1420.0,
+         "name" : "Moentschelen SP",
+         "description" : "D01"
+       }
+       
+        ,
+        "type" : "ESS"
+       
+     },{
+       "radius" : 1200.0,
+       "waypoint" : {
+         "lon" : 7.537155555555556,
+         "lat" : 46.69456388888889,
+         "altSmoothed" : 1970.0,
+         "name" : "Stockhorn",
+         "description" : "B05"
+       }
+       
+     }
+  ],
+  "sss" : {
+    "type" : "RACE",
+    "direction" : "EXIT",
+    "timeGates" : ["13:00:00Z"]
+  },  
+  "goal" : {
+    "type" : "CYLINDER",
+    "deadline" : "19:00:00Z"
+  }
+}
