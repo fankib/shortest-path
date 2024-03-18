@@ -11,15 +11,19 @@ to present the results.
 
 # define task file
 #f = open('tasks/67km-Napf-Walalp.xctsk')
-f = open('tasks/sc_biel_t1.xctsk')
+#f = open('tasks/sc_biel_t1.xctsk')
 #f = open('tasks/task_2022-02-28.xctsk')
 #f = open('tasks/task_2022-04-12.xctsk')
 #f = open('tasks/task_2023-03-04.xctsk')
+
+# Regio Verbier 2024
+f = open('tasks/regio_verbier/task_2024-03-16_1.xctsk')
 
 # create Task from file
 tps = json.load(f)['turnpoints']
 lats = np.array([float(tp['waypoint']['lat']) for tp in tps])
 lons = np.array([float(tp['waypoint']['lon']) for tp in tps])
+print(lats, lons)
 xs, ys, _, _ = utm.from_latlon(lats, lons)
 radiuses = [float(tp['radius']) for tp in tps]
 tps = [Turnpoint(center=Point2f(x, y), radius=r) for x, y, r in zip(xs, ys, radiuses)]

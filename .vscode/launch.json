@@ -1,0 +1,19 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    //"args": "--job 123 --array 2 --graph 2010 --method fcn-atqn2wt"
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python current file",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",            
+            //"args": "--job 123 --array 2 --graph 2010 --method gbr-atqn2wt"
+            //"args": "--job 123 --array 743 --graph 2010 --method gbr-atqn2wt"
+            //"args": "--job 123 --array"            
+        },
+    ]
+}
