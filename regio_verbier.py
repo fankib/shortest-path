@@ -9,16 +9,14 @@ from igc_reader import IgcReader
 
 
 # Regio Verbier 2024
-f = open('tasks/regio_verbier/task_2024-03-16_1.xctsk')
+f = open('tasks/regio_verbier/task_2024-03-16_2.xctsk')
 
 # create Task from file
 tps = json.load(f)['turnpoints']
-lats = np.array([float(tp['waypoint']['lat']) for tp in tps])
-lons = np.array([float(tp['waypoint']['lon']) for tp in tps])
-xs, ys, a, b = utm.from_latlon(lats, lons, 32, 'T')
-print('a', a)
-print('b', b)
-radiuses = [float(tp['radius']) for tp in tps]
+lats = [float(tp['waypoint']['lat']) for tp in tps]
+lons = [float(tp['waypoint']['lon']) for tp in tps]
+xs, ys, _, _ = utm.from_latlon(lats, lons, 32, 'T')
+radiuses = [tp['radius'] for tp in tps]
 tps = [Turnpoint(center=Point2f(x, y), radius=r) for x, y, r in zip(xs, ys, radiuses)]
 task = Task(tps)
 
@@ -37,9 +35,10 @@ path, distances = optimizer.run_fast()
 print(f'distance of shortest path: {path.distance()/1000:.1f}')
 visualizer.draw_path(path)
 
-#igc_reader = IgcReader('tasks/regio_verbier/igc', '12:45') # 2. Start
-#igc_reader = IgcReader('tasks/regio_verbier/igc', '13:05') # 2. Start
-igc_reader = IgcReader('tasks/regio_verbier/igc', '13:25') # sss
+#igc_reader = IgcReader('tasks/regio_verbier/igc', '12:45:00') # 1. Start
+#igc_reader = IgcReader('tasks/regio_verbier/igc', '13:05:00') # 2. Start
+#igc_reader = IgcReader('tasks/regio_verbier/igc', '13:25:00') # sss
+igc_reader = IgcReader('tasks/regio_verbier/igc', '13:25:45')
 
 #igc_reader = IgcReader('tasks/regio_verbier/igc', '14:27') # time in utc
 #igc_reader = IgcReader('tasks/regio_verbier/igc', '14:35') # time in utc
@@ -95,7 +94,7 @@ for p in pilots_by_domination:
 #print([(p.name,p.dominations) for p in pilots_by_domination])
 
 # process for pilot 1:
-pilot = igc_reader.pilot_by_name('Fankhauser')
+pilot = igc_reader.pilot_by_name('FAB')
 print('view of ', pilot.name)
 a = pilot.position
 sss_pilot = np.array([a[0], a[1], 2000])

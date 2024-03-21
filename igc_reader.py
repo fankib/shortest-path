@@ -15,7 +15,7 @@ class IgcReader:
 
     def __init__(self, folder, time):
         self.folder = folder
-        self.time = datetime.strptime(time, '%H:%M').time()
+        self.time = datetime.strptime(time, '%H:%M:%S').time()
         print(self.time)
         self.pilots = []
         self.read_folder()       
@@ -53,27 +53,27 @@ class IgcReader:
                 b_time = datetime.strptime(line[1:7], '%H%M%S').time()
                 if b_time < self.time:
                     continue
+                print(f'report position at {b_time}, {file}')
                 # start time reached:
-                #lat = int(line[7:7+7])/1e5
                 lat_deg = int(line[7:7+2])
-                lat_min = int(line[9:9+2])
-                lat_sec = int(line[11:11+3])/10
-                lat = lat_deg + (lat_min/60) + (lat_sec/3600)
+                lat_min = int(line[9:9+5])/1e3 # decimal min
+                lat = lat_deg + (lat_min/60)
                 lon_deg = int(line[15:15+3])
-                lon_min = int(line[18:18+2])
-                lon_sec = int(line[20:20+3])/10                
-                lon = lon_deg + (lon_min/60) + (lon_sec/3600)
-                alt = int(line[-5:])                
-                x, y, a, b = utm.from_latlon(lat, lon, 32, 'T')                
-                return np.array([x, y, alt])            
+                lon_min = int(line[18:18+5])/1e3 # decimal min, fuck me              
+                lon = lon_deg + (lon_min/60)
+                alt = int(line[25:25+5])
+                x, y, _, _ = utm.from_latlon(lat, lon, 32, 'T')
+                return np.array([x, y, alt])
         return None
 
 
 # Test as execution:
 if __name__ == '__main__':
 
-    reader = IgcReader('tasks/regio_verbier/igc', '13:25') # Use UTC times
+    reader = IgcReader('tasks/regio_verbier/igc', '13:23:44') # Use UTC times
     for p in reader.pilots:
+        if not 'Benjamin' in p.name:
+            continue
         print(f'{p.name}: {p.position}')
 
 
