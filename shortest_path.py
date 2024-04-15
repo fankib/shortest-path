@@ -100,9 +100,9 @@ class TurnpointSquareLoss():
         dy = 2*self.weight*(self.p.y-self.turnpoint.center.y)*(d-self.turnpoint.radius)/d
         return (dx, dy)
     
-    def backproject(self):
+    def backproject(self, forced=False):
         d = np.sqrt((self.p.x-self.turnpoint.center.x)**2 + (self.p.y-self.turnpoint.center.y)**2)
-        if d < self.turnpoint.radius:
+        if d < self.turnpoint.radius and not forced:
             return
         ax = (self.p.x-self.turnpoint.center.x)
         ay = (self.p.y-self.turnpoint.center.y)
@@ -248,7 +248,8 @@ class ShortestPathOptimizer:
         self.iterations=iterations
         self.init_stop_criteria = stop_criteria
         self.tp_weight = tp_weight
-        self.backproject = backproject        
+        self.backproject = backproject    
+        self.forced_backproject = True # default is False    
     
     def shortest_path(self, path=None):
         # initialize path (if none given)
@@ -322,7 +323,7 @@ class ShortestPathOptimizer:
         # backproject to a valid solution
         if self.backproject:
             for tp_function in tp_functions:
-                tp_function.backproject()
+                tp_function.backproject(forced=self.forced_backproject)
 
         return path
 

@@ -30,7 +30,10 @@ class IgcReader:
         files = self.read_files()
         for f in files:
             pilot = self.parse_pilot(f)
-            self.pilots.append(pilot)
+            if pilot.position is not None:
+                self.pilots.append(pilot)
+            else:
+                print('No position for ', pilot.name, '. Removed from dataset.')
     
     def read_files(self):
         return [f for f in listdir(self.folder) if isfile(join(self.folder, f))]
@@ -53,7 +56,7 @@ class IgcReader:
                 b_time = datetime.strptime(line[1:7], '%H%M%S').time()
                 if b_time < self.time:
                     continue
-                print(f'report position at {b_time}, {file}')
+                #print(f'report position at {b_time}, {file}')
                 # start time reached:
                 lat_deg = int(line[7:7+2])
                 lat_min = int(line[9:9+5])/1e3 # decimal min
@@ -64,6 +67,8 @@ class IgcReader:
                 alt = int(line[25:25+5])
                 x, y, _, _ = utm.from_latlon(lat, lon, 32, 'T')
                 return np.array([x, y, alt])
+
+        print('None position reported for ', file)                    
         return None
 
 

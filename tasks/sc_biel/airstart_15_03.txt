@@ -1,0 +1,108 @@
+  1. Aeschbacher Roger        107
+  2. Breitinger Dominik       106
+  3. Melo Hippolyte           105
+  4. Bourqui Nicolas          104
+  5. Von Burg Tim             102
+  6. Muehlemann Rene          101
+  7. Montavon Morane          101
+  8. Kägi Jérôme              100
+  9. Wicki Markus S           99
+ 10. Thiébaud Fabrice         98
+ 11. Dietrich Olivier         97
+ 12. Adler Frank              96
+ 13. Dunkel Christoph         95
+ 14. Pitteloud Youri          94
+ 15. Descoeudres Gabriel      93
+ 16. Zingg Alfredo            92
+ 17. Court Noé                91
+ 18. Räber Flurin             90
+ 19. Descombes Henri          89
+ 20. Geijsen Ronny            88
+ 21. Schwery Michael          87
+ 22. Birenstihl Andi          86
+ 23. Vollenweider Pit         85
+ 24. Seitz Adrian             84
+ 25. Gübeli Michael           83
+ 26. Binggeli Romain          81
+ 27. Licini Davide            81
+ 28. Goerttler Peter          80
+ 29. Mock Marcel              79
+ 30. Pfrunder Manuela         78
+ 31. Carvalho Nelson          76
+ 32. Berger Daniel            76
+ 33. Zimmermann Sarah         74
+ 34. Grandjean Henri          74
+ 35. Frochaux Gaël            73
+ 36. Bise Lucas               72
+ 37. Knapp Christian          71
+ 38. Fankhauser Benjamin      70
+ 39. Hryshunin Yevhen         69
+ 40. Naegeli Bernhard         68
+ 41. Vergari Marco            67
+ 42. Seitz Gernot             66
+ 43. Mabillard Jonas          65
+ 44. Ronchi Serena            64
+ 45. Harvey-Collard Patrick   63
+ 46. Kiener Noah              62
+ 47. Gygax Markus             61
+ 48. Mauri Nico               60
+ 49. Dmochowski Marek         59
+ 50. Kyburz Adrian            58
+ 51. Monnet Frédéric          57
+ 52. Jutzi Sedin              55
+ 53. Rechenmacher Christian   55
+ 54. Oerer Raphael            54
+ 55. Hutter Ruben             53
+ 56. Ferrer Llanes David      52
+ 57. Morrissey Peter          51
+ 58. Zumbach Christian        50
+ 59. Weber Sebastian          49
+ 60. Malyshev Artem           48
+ 61. Von Wyl Patrick          47
+ 62. Osmakov Dmitry           46
+ 63. Biffiger Valentin          45
+ 64. Vosti Mattia             44
+ 65. Glauser Andre            43
+ 66. Heldstab Corina          42
+ 67. Kneubühl Joel            41
+ 68. Sommerfeld Marco         40
+ 69. Hoch Linda               39
+ 70. Aymon Cédric             38
+ 71. Käsermann Philip         36
+ 72. Krauer Karim             36
+ 73. Eschbach Nicola          35
+ 74. Sutter Bernhard          34
+ 75. Rindlisbacher Jan        33
+ 76. Schutter Christian       32
+ 77. Grabos Michal            31
+ 78. Devaud Mathieu           30
+ 79. Blum Pascal              29
+ 80. Schneider Thomas         28
+ 81. Zorn Henri               27
+ 82. Caldelari Tennessee Carlo26
+ 83. Gabbud Christophe        25
+ 84. Bischof Beat             24
+ 85. Smith Niel               23
+ 86. Challande Stéphane       22
+ 87. Müller Michael           21
+ 88. Hauri Martina            20
+ 89. Steiner Simon            19
+ 90. Schoenauer Dario         18
+ 91. Popov Sergey             17
+ 92. Barnetta Renato          16
+ 93. Johannsen Jeele          15
+ 94. Nydegger Mathias         14
+ 95. Gunzenhauser Gina        13
+ 96. Rohrer Elodie            12
+ 97. Rath Christian           11
+ 98. Brodbeck Georg           10
+ 99. Orlowski Adrian          9
+100. Herminjard Stefanie      8
+101. Strahm Hans              7
+102. Meyer Jonathan           6
+103. Habegger Andrea          5
+104. Buob Simon               4
+105. Koch Tobias              3
+106. Arn Ueli                 2
+107. Witzig Kaj               0
+108. Falquier René            0
