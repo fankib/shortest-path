@@ -39,6 +39,11 @@ class Turnpoint:
     def __init__(self, center=Point2f(), radius=0.0):
         self.center = center
         self.radius = radius
+    
+    def intersect(self, point, tolerance=0.):
+        d = np.sqrt((self.center.x - point.x)**2 + (self.center.y - point.y)**2)
+        return d < self.radius*(1.+tolerance)
+    
 
 class Path:
 
@@ -211,7 +216,7 @@ class GridSearchShortestPath:
         configs = []
         grid = list(product(lrs, iterations, stop_criterias, tp_weights, backprojects))
         for lr, itr, crit, weight, back in tqdm(grid):
-            configs.append(f'lr={lr}, itr={itr}, crit={crit}, weight={weight}, back={back}')
+            configs.append({'lr': lr, 'itr': itr, 'crit': crit, 'weight': weight, 'back': back})
             optimizer = ShortestPathOptimizer(self.task, lr, itr, crit, weight, back)
             path = optimizer.shortest_path()
             paths.append(path)
@@ -220,7 +225,7 @@ class GridSearchShortestPath:
         # take the minimal of all paths
         idx = np.nanargmin(distances)
         print(f'found path with minimal distance: {distances[idx]} and config: {configs[idx]}')
-        return paths[idx], distances
+        return paths[idx], distances, configs[idx]
 
 class ShortestPathOptimizer:
     '''
@@ -239,7 +244,7 @@ class ShortestPathOptimizer:
     only an optimization scheme with correct boundary constraints will improve the solutions. But in practice it should be not
     less than 100-500 meters. And the quadratic approach might act as an useful initial state.
 
-    There is no support for a Line-Goal or ESS-optimization.
+    There is not yet support for a Line-Goal or ESS-optimization.
     '''
 
     def __init__(self, task, lr=0.01, iterations=100, stop_criteria=-1, tp_weight=20, backproject=True):

@@ -4,6 +4,8 @@ import json
 import utm
 from shortest_path import Turnpoint, Task, Path, Visualizer, ShortestPathOptimizer, Point2f, GridSearchShortestPath, reject_outliers
 
+from lib.task_loader import load_from_xctsk
+
 ''' This demo shows how to turn a XCTSK task file into the respective UTM coordinates and compute the optimal distance as
 shortest path from start to end, touching all turnpoints. It uses a small grid search to test different parameters and matplotlib
 to present the results.
@@ -11,24 +13,20 @@ to present the results.
 
 # define task file
 #f = open('tasks/67km-Napf-Walalp.xctsk')
-f = open('tasks/sc_biel_t1.xctsk')
+#f = open('tasks/sc_biel_t1.xctsk')
 #f = open('tasks/task_2022-02-28.xctsk')
 #f = open('tasks/task_2022-04-12.xctsk')
 #f = open('tasks/task_2023-03-04.xctsk')
+#f = open('tasks/task_2025-03-01.xctsk')
 
 # Regio Verbier 2024
 #f = open('tasks/regio_verbier/task_2024-03-16_1.xctsk')
 
 # create Task from file
-tps = json.load(f)['turnpoints']
-lats = np.array([float(tp['waypoint']['lat']) for tp in tps])
-lons = np.array([float(tp['waypoint']['lon']) for tp in tps])
-print(lats, lons)
-xs, ys, _, _ = utm.from_latlon(lats, lons)
-radiuses = [float(tp['radius']) for tp in tps]
-tps = [Turnpoint(center=Point2f(x, y), radius=r) for x, y, r in zip(xs, ys, radiuses)]
-#task = Task(tps)
-task = Task(tps[1:-1]) # sss ess task
+
+task = load_from_xctsk('tasks/task_2025-03-01.xctsk')
+task.turnpoints[-1].radius = 10 # simulate line goal
+#task = Task(tps[1:-1]) # sss ess task
 
 
 # visualize Task
@@ -43,8 +41,8 @@ visualizer.draw_path(center_path, alpha=0.2)
 
 # run a grid search to test different settings
 optimizer = GridSearchShortestPath(task)
-path, distances = optimizer.run_fast()
-#path, distances = optimizer.run_slow()
+path, distances, config = optimizer.run_fast()
+#path, distances, config = optimizer.run_slow()
 path_sss_ess = Path(path.points[1:-1])
 print(f'distance of shortest path: {path.distance()/1000:.1f}')
 print(f'distance of shortest path sss-ess: {path_sss_ess.distance()/1000:.1f}')
