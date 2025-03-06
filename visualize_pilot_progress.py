@@ -71,7 +71,7 @@ def process_pilot(filename, airstart, start, end, name):
 
 
     # compute diffs
-    periods=100 # 1=10m
+    periods=500 # 1=10m
     df['delta_seconds'] = df['seconds'].diff(periods=periods)    
     df['delta_gps_alt'] = df['gps_alt'].diff(periods=periods)    
     df['delta_distance'] = df['distance'].diff(periods=periods).apply(lambda x: -x)
@@ -100,8 +100,9 @@ def crop_distance(df, start, end):
 
 def plot_pilot_3d(df, name):
 
-    #sc = ax.scatter(df['x'], df['y'], df['gps_alt'], marker='o', label=name) 
-    sc = ax.scatter(df['x'], df['y'], df['gps_alt'], c=df['distance'], cmap='viridis', marker='o', label=name) 
+    #sc = ax.scatter(df['x'], df['y'], df['gps_alt'], marker='o', label=name)    
+    sc = ax.scatter(df['x'], df['y'], df['gps_alt'], c=df['compensated_speed'], vmin=10/3.6, vmax=45/3.6, cmap='viridis', marker='o', label=name) 
+    #print(f"Pilot {name}:", np.min(df['compensated_speed'])*3.6, np.max(df['compensated_speed'])*3.6)
                     
     
 
@@ -138,8 +139,8 @@ crop_start = datetime.time(11, 30)
 #crop_end = datetime.time(13, 30)
 crop_end = datetime.time(11, 50)
 
-d_start = 10000
-d_end = 00000
+d_start = 20000
+d_end = 10000
 
 process_pilot('dump/benjamin.csv', airstart, d_start, d_end, 'Benjamin')
 process_pilot('dump/patrick.csv', airstart, d_start, d_end, 'Patrick')
