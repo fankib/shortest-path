@@ -3,6 +3,3 @@ aerofiles @ git+https://github.com/Turbo87/aerofiles.git
 tqdm
 seaborn
 
-# bluetooth:
-bleak
-pyautogui
