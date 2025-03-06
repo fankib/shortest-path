@@ -31,8 +31,12 @@ class Point2f:
 
 class Task:
     
-    def __init__(self, turnpoints):
+    def __init__(self, turnpoints, airstart=None):
         self.turnpoints = turnpoints
+        self.airstart = airstart
+    
+    def copy(self):
+        return Task([tp.copy() for tp in self.turnpoints], self.airstart)
 
 class Turnpoint:
     
@@ -43,6 +47,9 @@ class Turnpoint:
     def intersect(self, point, tolerance=0.):
         d = np.sqrt((self.center.x - point.x)**2 + (self.center.y - point.y)**2)
         return d < self.radius*(1.+tolerance)
+    
+    def copy(self):
+        return Turnpoint(self.center.copy(), self.radius)
     
 
 class Path:
@@ -59,6 +66,9 @@ class Path:
         for i in range(len(self.points)-1):
             d += np.sqrt((self.points[i].x-self.points[i+1].x)**2 + (self.points[i].y-self.points[i+1].y)**2)
         return d
+    
+    def copy(self):
+        return Path([p.copy() for p in self.points])
 
 
 ### Visualizer
