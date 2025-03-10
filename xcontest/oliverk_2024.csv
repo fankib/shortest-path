@@ -1,10 +1,3 @@
-№,Startzeit,Startplatz,Strecke,Länge,Punkte,Flugdauer,km/h,Gleiter,info,,,⁕
-1,21.09.24 15:22=UTC+02:00,CHElsighorn,,23.57 km,23.58 P.,1 : 02 h,23.46,,, ,,
-2,03.08.24 14:37=UTC+02:00,CHMarbachegg,,59.25 km,59.25 P.,2 : 33 h,23.38,,, ,,
-3,11.05.24 15:12=UTC+02:00,CHMostelegg,,31.94 km,31.94 P.,1 : 46 h,22.84,,, ,,
-4,17.07.24 11:22=UTC+02:00,CHWeissenstein,,112.13 km,112.13 P.,4 : 56 h,22.77,,, ,,
-5,20.07.24 14:04=UTC+02:00,CHWeissenstein,,89.52 km,89.52 P.,4 : 11 h,21.64,,, ,,
-6,10.08.24 15:05=UTC+02:00,CHMarbachegg,,40.83 km,40.83 P.,2 : 16 h,20.58,,, ,,
-7,12.05.24 11:53=UTC+02:00,CHWeissenstein,,58.25 km,58.25 P.,2 : 51 h,20.55,,, ,,
-8,20.05.24 11:03=UTC+02:00,CHWeissenstein,,43.50 km,43.50 P.,2 : 16 h,19.28,,, ,,
-9,10.05.24 13:07=UTC+02:00,CHMarbachegg,,53.47 km,64.16 P.,4 : 32 h,11.92,,,,,
+version https://git-lfs.github.com/spec/v1
+oid sha256:d0df5f0f3e27608f7f4b9a49e0576b3668159dc194ffe5998f332beca7bb16db
+size 844

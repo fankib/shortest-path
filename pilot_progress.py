@@ -17,13 +17,16 @@ if it matches them.
 
 def clean_name(name):
     name = name.lower()
-    name = name.replace("ä", "a").replace("ö", "o").replace("ü", "u")
+    name = name.replace("ä", "a").replace("ö", "o").replace("ü", "u").replace('é', 'e').replace('è', 'e').replace('à', 'a')
     name = re.sub('[^a-zA-Z0-9]+', '-', name)
     name = name.strip('-')
     return name
 
 # contains .xctsk and .igc
-ROOT_DIRECTORY = 'igc/task_2025-03-01' 
+#ROOT_DIRECTORY = 'igc/task_2025-03-01' 
+
+# Swiss Leage Cups
+ROOT_DIRECTORY = 'igc/swissleague/march/igc6494_2025-03-08'
 
 # scan directory
 task_file = None
@@ -42,8 +45,15 @@ pilots = {}
 for igc_file in igc_files:
     with open(igc_file, 'r') as f:
         pilot_igc = igc.Reader().read(f)
-        pilot_name = clean_name(pilot_igc['header'][1]['pilot'])
+        pilot_name = pilot_igc['header'][1]['pilot']
+        if pilot_name is not None:
+            pilot_name = clean_name(pilot_igc['header'][1]['pilot'])
+        else:
+            match = re.search(r"LiveTrack (.+?)\.\d", igc_file)
+            pilot_name = match.group(1)
+        assert pilot_name not in pilots, 'Dublicated file found! ' + igc_file
         pilots[pilot_name] = igc_file
+
 
 
 
@@ -152,10 +162,11 @@ for pilot in pilots.keys():
         'distance': col_distance
     })
     #df.to_csv(f'dump/{pilot}.csv.gz', index=False, compression="gzip")
-    try:
-        os.mkdir(f'dump/{task_name}/')
-    except OSError:
-        pass
+    #try:
+    #    os.mkdir(f'dump/{task_name}/')
+    #except OSError:
+    #    pass
+    os.makedirs(f'dump/{task_name}', exist_ok=True)
     df.to_csv(f'dump/{task_name}/{pilot}.csv', index=False)
 
 
