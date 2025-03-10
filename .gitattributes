@@ -1,3 +1,4 @@
 *.igc filter=lfs diff=lfs merge=lfs -text
 *.csv filter=lfs diff=lfs merge=lfs -text
 *.kml filter=lfs diff=lfs merge=lfs -text
+*.kmz filter=lfs diff=lfs merge=lfs -text

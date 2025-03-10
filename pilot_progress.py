@@ -2,6 +2,7 @@ import datetime
 import utm
 import os
 import re
+import concurrent.futures
 import pandas as pd
 from tqdm import tqdm
 
@@ -9,84 +10,35 @@ from aerofiles import igc
 from shortest_path import Path, GridSearchShortestPath, Point2f, ShortestPathOptimizer
 
 from lib.task_loader import load_from_xctsk
+from pilot_progression.pilot_progression import canonical_name
 
 '''
 This script computs the pilot prorgress towards goal. It is based on the shorts path algorihtm and gradually deletes turnpoints
 if it matches them.
 '''
 
-def clean_name(name):
-    name = name.lower()
-    name = name.replace("ä", "a").replace("ö", "o").replace("ü", "u").replace('é', 'e').replace('è', 'e').replace('à', 'a')
-    name = re.sub('[^a-zA-Z0-9]+', '-', name)
-    name = name.strip('-')
-    return name
+VERBOSE = False
 
-# contains .xctsk and .igc
-#ROOT_DIRECTORY = 'igc/task_2025-03-01' 
+#def clean_name(name):
+#    name = name.lower()
+#    name = name.replace("ä", "a").replace("ö", "o").replace("ü", "u").replace('é', 'e').replace('è', 'e').replace('à', 'a')
+#    name = re.sub('[^a-zA-Z0-9]+', '-', name)
+#    name = name.strip('-')
+#    return name
 
-# Swiss Leage Cups
-ROOT_DIRECTORY = 'igc/swissleague/march/igc6494_2025-03-08'
-
-# scan directory
-task_file = None
-igc_files = []
-for file in os.listdir(ROOT_DIRECTORY):
-    if file.lower().endswith('.xctsk'):
-        assert task_file is None, 'two task files found!'
-        task_name = file.split('.')[0]
-        task_file = os.path.join(ROOT_DIRECTORY, file)
-    if file.lower().endswith('.igc'):
-        igc_files.append(os.path.join(ROOT_DIRECTORY, file))
-
-# Scan igc files for names:
-print("Pilots found:")
-pilots = {}
-for igc_file in igc_files:
-    with open(igc_file, 'r') as f:
-        pilot_igc = igc.Reader().read(f)
-        pilot_name = pilot_igc['header'][1]['pilot']
-        if pilot_name is not None:
-            pilot_name = clean_name(pilot_igc['header'][1]['pilot'])
-        else:
-            match = re.search(r"LiveTrack (.+?)\.\d", igc_file)
-            pilot_name = match.group(1)
-        assert pilot_name not in pilots, 'Dublicated file found! ' + igc_file
-        pilots[pilot_name] = igc_file
-
-
-
-
-original_task = load_from_xctsk(task_file)
-#task.turnpoints[-1].radius = 100 # simulate line goal
-#airstart = datetime.time(11, 35) # use utc
-
-# Create initial shortest path
-center_path = Path.from_center_points(original_task)
-optimizer = GridSearchShortestPath(original_task)
-original_path, distances, config = optimizer.run_fast()
-
-#pilots = {'benjamin': 'igc/task_2025-03-01-Regio/2025-03-01-XCT-BFA-11.igc',
-#           'roger': 'igc/task_2025-03-01-Regio/2025-03-01-XCT-RAE-01.igc',
-#           'patrick': 'igc/task_2025-03-01-Regio/2025-03-01-XCT-PMO-01.igc'
-#           }
-
-# Select a pilot:
-#pilot = 'roger'
-
-for pilot in pilots.keys():
-    print('Process pilot: ', pilot)
-
+def process_pilot(pilot_item):
+    pilot, igc_file = pilot_item
+    
     # restore original task and path (hackedihackhack)
     task = original_task.copy()
     path = original_path.copy()
 
-    if pilot == 'adrian-muller' or pilot == 'muhlemann-ren':
-        print('skip', pilot)
-        continue
+    #if pilot == 'adrian-muller' or pilot == 'muhlemann-ren':
+    #    print('skip', pilot)
+    #    continue
 
     # Compute the pilots progress at each timestep
-    with open(pilots[pilot], 'r') as f:
+    with open(igc_file, 'r') as f:
         pilot_igc = igc.Reader().read(f)
 
 
@@ -103,7 +55,8 @@ for pilot in pilots.keys():
 
     turnpoint_counter = 1
     in_goal = False
-    for record in tqdm(pilot_igc['fix_records'][1]):
+    #for record in tqdm(pilot_igc['fix_records'][1]):
+    for record in pilot_igc['fix_records'][1]: # non verbose!
         # {'time': datetime.time(11, 16, 31), 'lat': 46.7004, 'lon': 7.820883333333334, 'validity': 'A', 'pressure_alt': 1181, 'gps_alt': 1275, 'LAD': 1, 'LOD': 3, 'datetime': datetime.datetime(2025, 3, 1, 11, 16, 31, tzinfo=<aerofiles.util.timezone.TimeZoneFix object at 0x762567367e00>)}
         
         # for each record: 
@@ -124,13 +77,13 @@ for pilot in pilots.keys():
 
         # test for turnpoint 1
         if not in_goal and task_started and task.turnpoints[1].intersect(pilot_position):
-            print(f'HIT TP{turnpoint_counter} at', record['time'])
+            VERBOSE and print(f'[{pilot}] HIT TP{turnpoint_counter} at', record['time'])
             if len(task.turnpoints) >= 3:
                 del task.turnpoints[1]
                 del path.points[1] # remove coresponding point
                 turnpoint_counter += 1            
             else:
-                print('In Goal!')
+                VERBOSE and print(f'[{pilot}] In Goal!')
                 in_goal = True
         
         # optimize distance given the updated path and the best config
@@ -165,8 +118,72 @@ for pilot in pilots.keys():
     #try:
     #    os.mkdir(f'dump/{task_name}/')
     #except OSError:
-    #    pass
-    os.makedirs(f'dump/{task_name}', exist_ok=True)
+    #    pass    
     df.to_csv(f'dump/{task_name}/{pilot}.csv', index=False)
+    VERBOSE and print(f'Processed {pilot}')
+
+
+
+
+# contains .xctsk and .igc
+
+# Regio Beo
+ROOT_DIRECTORY = 'igc/task_2025-03-01' 
+
+# Swiss Leage Cups
+#ROOT_DIRECTORY = 'igc/swissleague/march/igc6494_2025-03-08'
+
+# scan directory
+task_file = None
+igc_files = []
+for file in os.listdir(ROOT_DIRECTORY):
+    if file.lower().endswith('.xctsk'):
+        assert task_file is None, 'two task files found!'
+        task_name = file.split('.')[0]
+        task_file = os.path.join(ROOT_DIRECTORY, file)
+    if file.lower().endswith('.igc'):
+        igc_files.append(os.path.join(ROOT_DIRECTORY, file))
+
+# Scan igc files for names:
+pilots = {}
+for igc_file in igc_files:
+    with open(igc_file, 'r') as f:
+        pilot_igc = igc.Reader().read(f)
+        pilot_name = pilot_igc['header'][1]['pilot']
+        if pilot_name is not None:
+            pilot_name = canonical_name(pilot_igc['header'][1]['pilot'])
+        else:
+            match = re.search(r"LiveTrack (.+?)\.\d", igc_file)
+            pilot_name = canonical_name(match.group(1))
+        assert pilot_name not in pilots, 'Dublicated file found! ' + igc_file
+        pilots[pilot_name] = igc_file
+print("Pilots found:", pilots.keys())
+
+
+# prepare output
+os.makedirs(f'dump/{task_name}', exist_ok=True)
+
+original_task = load_from_xctsk(task_file)
+#task.turnpoints[-1].radius = 100 # simulate line goal
+#airstart = datetime.time(11, 35) # use utc
+
+# Create initial shortest path
+center_path = Path.from_center_points(original_task)
+optimizer = GridSearchShortestPath(original_task)
+original_path, distances, config = optimizer.run_fast()
+#original_path, distances, config = optimizer.run_slow()
+
+#pilots = {'benjamin': 'igc/task_2025-03-01-Regio/2025-03-01-XCT-BFA-11.igc',
+#           'roger': 'igc/task_2025-03-01-Regio/2025-03-01-XCT-RAE-01.igc',
+#           'patrick': 'igc/task_2025-03-01-Regio/2025-03-01-XCT-PMO-01.igc'
+#           }
+
+# Select a pilot:
+#pilot = 'roger'
+
+
+with concurrent.futures.ProcessPoolExecutor(max_workers=20) as executor:
+    #executor.map(process_pilot, pilots.items())
+    list(tqdm(executor.map(process_pilot, pilots.items()), total=len(pilots)))
 
 

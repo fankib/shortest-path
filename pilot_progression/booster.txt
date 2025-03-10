@@ -1,0 +1,44 @@
+# Staff:
+thiebaud-fabrice
+cox-steve
+aeschbacher-roger
+
+# German
+steiner-simon
+eyer-sebastian
+fuchs-joel
+hauri-martina
+
+sommerfeld-marco
+fankhauser-benjamin
+zimmermann-sarah
+kiener-noah
+blum-pascal
+
+heldstab-corina
+morgenthaler-patrick
+schwery-viera
+sweda-romy
+
+hutter-ruben
+müller-adrian
+vosti-mattia
+jutzi-sedin
+johannsen-jeele
+
+# French
+descombes-henri
+zingg-alfredo
+aymon-cedric
+frochaux-gael
+
+binggeli-romain
+mumenthaler-colin
+court-noe
+
+monnet-frederic
+grandjean-henri
+mabillard-jonas
+descoeudres-gabriel
+liard-bruno
+devaud-mathieu
