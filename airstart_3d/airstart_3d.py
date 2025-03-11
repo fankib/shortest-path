@@ -4,12 +4,17 @@ import utm
 import os
 import re
 import math
+import itertools
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize
+from tqdm import tqdm
 
-from vpython import scene, sphere, vector, rate, color, cylinder, text, label
+from vpython import scene, canvas, sphere, vector, rate, color, cylinder, text, label, box
 
+from sklearn.cluster import KMeans, AgglomerativeClustering
 
 '''
 This Script reads the 3d data from the pilots in the start thermal.
@@ -25,6 +30,42 @@ def crop_time(df, start, end):
 
 def as_seconds(t):
     return t.hour*3600 + t.minute*60 + t.second
+
+tile_server_url = "https://api.maptiler.com/maps/landscape/{z}/{x}/{y}.png?key=Pnj84XMbfpc5r0Ir1bLb"
+
+def create_url(x, y, zoom):
+    return tile_server_url.format(z=zoom, x=x, y=y)
+
+TILE_SIZE = 512
+def latlon_to_tile(lat, lon, zoom):
+    # Convert latitude to Mercator projection
+    lat_rad = math.radians(lat)
+    
+    # Number of tiles at this zoom level
+    n = 2.0 ** zoom
+
+    # Calculate tile coordinates
+    x = (lon + 180.0) / 360.0 * n * TILE_SIZE
+    y = (1.0 - math.log(math.tan(lat_rad) + 1.0 / math.cos(lat_rad)) / math.pi) / 2.0 * n * TILE_SIZE
+
+    # Tile number
+    x_tile = int(x // TILE_SIZE)
+    y_tile = int(y // TILE_SIZE)
+
+    # Pixel offset inside the tile
+    x_offset = int(x % TILE_SIZE)
+    y_offset = int(y % TILE_SIZE)
+
+    return x_tile, y_tile, x_offset/TILE_SIZE, y_offset/TILE_SIZE
+
+EARTH_CIRCUMFERENCE = 40075016.6856  # in meters (equatorial)
+
+def webmercator_tile_size(lat, zoom):    
+    lat_rad = math.radians(lat)   
+    num_tiles = 2 ** zoom    
+    tile_width_meters = (EARTH_CIRCUMFERENCE * math.cos(lat_rad)) / num_tiles    
+    tile_height_meters = EARTH_CIRCUMFERENCE / num_tiles
+    return tile_width_meters, tile_height_meters
 
 # END of COPYCODE
 
@@ -46,7 +87,7 @@ class CsvPilot:
         df['seconds'] = df['time'].apply(lambda t: as_seconds(t) - as_seconds(airstart))
         
         # filter before airstart
-        df = df[df['airstart'] == False]
+        #df = df[df['airstart'] == False]
         df = crop_time(df, start, end)
 
         # check if df contains end:
@@ -55,18 +96,18 @@ class CsvPilot:
         
         # convert x,y coordinates:
         xs, ys, _, _ = utm.from_latlon(df['lat'].values, df['lon'].values)
-        df['x'] = (xs - 419806.302- 400)
-        df['y'] = (ys - 5168141.307)
+        df['x'] = xs # (xs - 419806.302- 400)
+        df['y'] = ys # (ys - 5168141.307)
 
         # Resample in Time (1 second):
+        range_start = as_seconds(start) - as_seconds(airstart)
+        range_end = as_seconds(end) - as_seconds(airstart)
         df.set_index('seconds', inplace=True)
-        new_index = np.arange(-900, 0)
+        new_index = np.arange(range_start, range_end)
         df = df.reindex(new_index)
         df.index.name = 'seconds'
 
-        assert len(df) == 900, 'reindexing went wrong'
-
-        df = df[['x', 'y', 'gps_alt', 'time']]        
+        df = df[['x', 'y', 'gps_alt', 'pressure_alt', 'time']]        
         df = df.reset_index()
 
         # interpolate
@@ -74,15 +115,24 @@ class CsvPilot:
         df['y'] = df['y'].interpolate(method='linear')
         df['gps_alt'] = df['gps_alt'].interpolate(method='linear')
 
+        # compute distances
+        df['utm_distance'] = np.sqrt((df['x'].diff())**2 + (df['y'].diff())**2)
+
         # use shifts:
         shift = 4//2 # period = 2*shift
         df['delta_seconds'] = df['seconds'].shift(-shift) - df['seconds'].shift(shift)
-        df['delta_gps_alt'] = df['gps_alt'].shift(-shift) - df['gps_alt'].shift(shift)        
+        df['delta_gps_alt'] = df['gps_alt'].shift(-shift) - df['gps_alt'].shift(shift)  
+        df['delta_pressure_alt'] = df['pressure_alt'].shift(-shift) - df['pressure_alt'].shift(shift)  
+        df['delta_utm_distance'] = df['utm_distance'].rolling(window=2*shift+1, center=True).sum() #df['utm_distance'].shift(-shift) - df['utm_distance'].shift(shift)  
+
 
         # compute segment statistics
-        df['climb'] = df['delta_gps_alt'] / df['delta_seconds']        
+        df['gps_climb'] = df['delta_gps_alt'] / df['delta_seconds']        
+        df['pressure_climb'] = df['delta_pressure_alt'] / df['delta_seconds']
+        df['utm_speed'] = 3.6*df['delta_utm_distance'] / df['delta_seconds']
+        #df['utm_acceleration'] = df['delta_utm_speed'] / df['delta_seconds']   
 
-        print(f'Process Pilot {self.name}')
+        #print(f'Process Pilot {self.name}')
         self.df = df
 
 class CsvCompetition:
@@ -93,9 +143,10 @@ class CsvCompetition:
         self.view = None        
 
     def read_pilots(self, airstart, start, end):
+        self.total_time = as_seconds(end) - as_seconds(start) # total time in seconds
         # read and process all CSV files:
         counter = 200
-        for filename in os.listdir(self.directory):
+        for filename in tqdm(list(os.listdir(self.directory))):
             if counter == 0:
                 return
             counter -= 1
@@ -107,21 +158,145 @@ class CsvCompetition:
                 except ValueError:
                     print(f'Pilot {pilot.name} error. Skip!')
     
-    def animate_pilots(self):
+    def compute_thermal_centroids(self):
+        # Compute Climb Centroid
+        value = 'pressure_climb'
+        top20 = 50
+        self.n_thermals = 5
+        dfs = [p.df for p in self.pilots]
+        names = [p.name for p in self.pilots]
+        df_all = pd.concat(dfs, keys=names, names=['pilot']).reset_index()
+        df_all = df_all[df_all['x'] <=  419806 + 1200] # remove outliers
+        df_sorted = df_all.sort_values(by=['seconds', value], ascending=[True, False])
+        df_top20 = df_sorted.groupby('seconds').head(top20).reset_index()
+        #self.df_thermal = df_top20.groupby('seconds')[['x', 'y', 'pressure_alt', 'gps_alt', 'pressure_climb']].mean().reset_index()
+
+        self.df_thermals = []
+        for i in range(self.n_thermals):
+            self.df_thermals.append(
+                {'seconds':[], 'x':[], 'y':[], 'gps_alt':[], 'pressure_climb':[]}
+            )
         
-        # Setup Scene
+        previous_centroids = None
+        for seconds, group in tqdm(df_top20.groupby('seconds')):
+            coords = group[['x', 'y', 'gps_alt']].values
+
+            if previous_centroids is None:
+                kmeans = KMeans(n_clusters=self.n_thermals, n_init=10)
+            else:
+                kmeans = KMeans(n_clusters=self.n_thermals, init=np.array(previous_centroids), n_init=1)
+            kmeans.fit(coords)            
+            
+            for i,centroid in enumerate(kmeans.cluster_centers_):
+                self.df_thermals[i]['seconds'].append(seconds)                
+                self.df_thermals[i]['x'].append(centroid[0])
+                self.df_thermals[i]['y'].append(centroid[1])
+                self.df_thermals[i]['gps_alt'].append(centroid[2])
+                weight = 0.7 # (kmeans.labels_ == i).sum() *3 / top20
+                self.df_thermals[i]['pressure_climb'].append(weight * group[kmeans.labels_ == i]['pressure_climb'].mean())
+            previous_centroids = kmeans.cluster_centers_
+
+            # Use Agglomerative Clustering:
+            #agglo = AgglomerativeClustering(n_clusters=self.n_thermals)
+            #labels = agglo.fit_predict(coords)
+            #centroids = [coords[labels == i].mean(axis=0) for i in range(self.n_thermals)]
+            #for i,centroid in enumerate(centroids):
+            #    self.df_thermals[i]['seconds'].append(seconds)                
+            #    self.df_thermals[i]['x'].append(centroid[0])
+            #    self.df_thermals[i]['y'].append(centroid[1])
+            #    self.df_thermals[i]['gps_alt'].append(centroid[2])
+            #    weight = 0.7 # (kmeans.labels_ == i).sum() *3 / top20                
+            #    self.df_thermals[i]['pressure_climb'].append(weight * group[labels == i]['pressure_climb'].mean())
+            
+            
+
+
+        self.df_thermals = [pd.DataFrame(data) for data in self.df_thermals]
+            
+    
+    def plot_integrated_climb(self):
+
+        # collect values:
+        #self.plot_column_statistics('gps_climb')
+        #self.plot_column_statistics('pressure_climb')
+        self.plot_column_statistics('utm_speed')
+        for pilot in self.pilots:
+            if 'fankhauser-benjamin' == pilot.name:
+                plt.plot(pilot.df.index, pilot.df['utm_speed'])
+        
+        plt.legend()
+        plt.grid()
+        plt.show()
+    
+    def plot_column_statistics(self, value):
+        dfs = [p.df for p in self.pilots]
+        dfs_value = [df[value] for df in dfs]
+        df_all = pd.concat(dfs_value, axis=1, join='inner')
+
+        # compute statistics per row:
+        #df_all.apply(lambda row: row.mean(), axis=1)
+        df_all['mean'] = df_all.mean(axis=1)
+        df_all['std'] = df_all.std(axis=1)
+
+        plt.plot(df_all.index, df_all['mean'], label='Mean')
+        plt.fill_between(df_all.index, df_all['mean'] - df_all['std'], df_all['mean'] + df_all['std'], alpha=0.3, label='Std')
+
+
+
+    def animate_pilots(self, fix_pilot=False):
+        
+        # Setup Scene        
+        scene = canvas(width=1920-50, height=1080-100, resizable=True, background=vector(44/255, 44/255, 45/255))
+
         # Simulation parameters
-        total_time = 900  # total simulation time in seconds (5 minutes)        
         speedup = 5
         dt = 0.5/speedup      # time step for the simulation
-        scene.width = 1920-50
-        scene.height = 1080-100
+        #scene.width = 1920-50
+        #scene.height = 1080-100                
 
         # access data more easily:
         X = [pilot.df['x'].values for pilot in self.pilots]
-        Y = [pilot.df['y'].values for pilot in self.pilots]
-        Z = [pilot.df['gps_alt'].values - 2500 for pilot in self.pilots]
-        C = [pilot.df['climb'].values for pilot in self.pilots]
+        Y = [pilot.df['gps_alt'].values - 2500 for pilot in self.pilots]
+        Z = [-pilot.df['y'].values for pilot in self.pilots]        
+
+        # compute initial centroids for X, Z:
+        center_x = np.array(X)[:, 0].mean()
+        center_z = np.array(Z)[:, 0].mean()
+        top_left_x = np.array(X).min()
+        top_left_z = np.array(Z).min()
+        center_offset_x = center_x - top_left_x
+        center_offset_z = center_z - top_left_z
+
+        X = [x-center_x for x in X]
+        Z = [z-center_z for z in Z]
+
+        # Create Ground Box
+        UTM_ZONE = 32
+        UTM_LETTER = 'T'        
+        lat, lon = utm.to_latlon(top_left_x, -top_left_z, UTM_ZONE, UTM_LETTER)
+        zoom = 13
+        x, y, off_x, off_y = latlon_to_tile(lat, lon, zoom)
+        print(f"Tile coordinates for zoom {zoom}: x = {x}, y = {y}, using the offset: {off_x}/{off_y}")        
+        
+        width, height = webmercator_tile_size(lat, zoom)
+        off_x = (off_x-0.5)*width
+        off_y = (off_y-0.5)*width
+        
+        # create 3x3 grid
+        grid_size = 1
+        grid = list(itertools.product(range(grid_size), repeat=2))
+        for coord in grid:
+            i,j = coord
+            ground_box = box(pos=vector(-center_offset_x-off_x+i*width, -1500, -center_offset_z-off_y+j*width), size=vector(width, 0.1, width))  # Box with ground level height
+            ground_box.texture = url = create_url(x+i, y+j, zoom)
+        
+
+        #C = [pilot.df['gps_climb'].values for pilot in self.pilots]
+        C = [pilot.df['pressure_climb'].values for pilot in self.pilots]
+        #C = [np.abs(pilot.df['gps_climb'].values - pilot.df['pressure_climb'].values) for pilot in self.pilots]
+
+        # statistics:
+        print('Value statistics: mean', np.nanmean(C), 'std', np.nanstd(C), 'min', np.nanmin(C), 'max', np.nanmax(C))
 
         # create pilots:
         pilots = []
@@ -134,40 +309,69 @@ class CsvCompetition:
             start_z = Z[i][0]
             start_c=color.red
             emissive = False
+            retain = 25
             if 'fankhauser-benjamin' == self.pilots[i].name:
                 start_c = color.yellow
                 emissive = False
+                retain = 100
                 
             sp = sphere(pos=vector(start_x, start_y, start_z),
                 radius=10,
-                make_trail=True, retain=25, trail_radius=1,
+                make_trail=True, retain=retain, trail_radius=1,
                 emissive=emissive, color=start_c)
             pilots.append(sp)
         
+        # Add Massive Thermal Sphere
+        #if self.df_thermals is not None:
+        thermal_X = [df['x'].values for df in self.df_thermals]
+        thermal_Y = [df['gps_alt'].values - 2500 for df in self.df_thermals]
+        thermal_Z = [-df['y'].values for df in self.df_thermals]
+        thermal_C = [df['pressure_climb'].values for df in self.df_thermals]
+        
+        # center correction
+        thermal_X = [x-center_x for x in thermal_X]
+        thermal_Z = [z-center_z for z in thermal_Z]
+
+        thermals = [sphere(pos=vector(0, 0, 0), radius=100, opacity=0.1, color=color.yellow) for _ in range(self.n_thermals)]
+
         # Add axes:
         L = 500
         R = L/100
         d = L-2
         xaxis = cylinder(pos=vector(0,0,0), axis=vector(d,0,0), radius=R, color=color.yellow)
         yaxis = cylinder(pos=vector(0,0,0), axis=vector(0,d,0), radius=R, color=color.yellow)
-        zaxis = cylinder(pos=vector(0,0,0), axis=vector(0,0,d), radius=R, color=color.yellow)        
+        zaxis = cylinder(pos=vector(0,0,0), axis=vector(0,0,-d), radius=R, color=color.yellow)        
         k = 1.02
         h = 0.05*L
-        text(pos=xaxis.pos+k*xaxis.axis, text='x', height=h, align='center', billboard=True, emissive=True)
-        text(pos=yaxis.pos+k*yaxis.axis, text='y', height=h, align='center', billboard=True, emissive=True)
-        text(pos=zaxis.pos+k*zaxis.axis, text='z', height=h, align='center', billboard=True, emissive=True)
-        txt_timer = label(pos=zaxis.pos+1.07*zaxis.axis, text='timer', height=h, align='center', box=False, border=0., emissive=True)
+        text(pos=xaxis.pos+k*xaxis.axis, text='east', height=h, align='center', billboard=True, emissive=True)
+        text(pos=yaxis.pos+k*yaxis.axis, text='alt', height=h, align='center', billboard=True, emissive=True)
+        text(pos=zaxis.pos+k*zaxis.axis, text='north', height=h, align='center', billboard=True, emissive=True)
+        txt_timer = label(pos=yaxis.pos+1.1*yaxis.axis, text='timer', height=h, align='center', box=False, border=0., emissive=True)
+
+        # find pilot to follow:
+        follow_pilot = None
+        if fix_pilot:
+            for i in range(n_pilots):
+                if self.pilots[i].name == 'fankhauser-benjamin': # could be faster
+                    follow_pilot = i
+                    print('follow pilot: ', follow_pilot)
+                    print('current camera:', scene.camera.pos)
+                    break
 
         # Run Animation!
         # Animation loop
         t = 0
-        while t < total_time-1:
+        # offset for pilot fixation
+        prev_pos = None        
+        offset_x = 0
+        offset_z = 0
+        while t < self.total_time-1:
             rate(speedup/dt)  # controls the simulation speed
 
             t_j = math.floor(t)                        
             tt = t - t_j # interpolation alpha            
 
-            txt_timer.text = f'{t_j-total_time}s'            
+            txt_timer.text = f'{t_j-self.total_time}s'            
 
             for i in range(n_pilots):
                 # Calculate the new angle for this pilot
@@ -176,23 +380,51 @@ class CsvCompetition:
                 new_x = (1.-tt)*X[i][t_j] + (tt)*X[i][t_j+1]                
                 new_y = (1.-tt)*Y[i][t_j] + (tt)*Y[i][t_j+1]
                 new_z = (1.-tt)*Z[i][t_j] + (tt)*Z[i][t_j+1]    
-                climb = (1.-tt)*C[i][t_j] + (tt)*C[i][t_j+1]            
+                col = (1.-tt)*C[i][t_j] + (tt)*C[i][t_j+1]            
 
                 pilots[i].pos = vector(new_x, new_y, new_z)
 
                 #if i == 0 and tt < 0.1:
-                #    print('climb', climb)
-
+                #    print('climb', climb)               
     
                 # Change the color based on the altitude:
                 # r, g, b values vary with cosine and sine functions to produce a smooth transition.
                 vmin = -1
                 vmax = 3
-                r_val = np.clip(climb-vmin/(vmax-vmin), 0, 1) #(math.cos(theta) + 1) / 2    # Normalize cosine to [0,1]
-                g_val = 0.2 #(math.sin(theta) + 1) / 2      # Normalize sine to [0,1]
-                b_val = 0.1 #(math.cos(theta + math.pi/2) + 1) / 2  # Phase-shifted cosine for variation
+                #norm = Normalize(vmin=vmin, vmax=vmax)
+                #rgb = plt.cm.viridis((col-vmin)/(vmax-vmin))
+                #pilots[i].color = vector(rgb[0], rgb[1], rgb[2])
+                r_val = np.clip((col-vmin)/(vmax-vmin), 0, 1)
+                g_val = 0.2 
+                b_val = 0.1
+                pilots[i].color = vector(r_val, g_val, b_val)                
+            
+            # Update thermal sphere:
+            for i in range(self.n_thermals):
+                new_x = (1.-tt)*thermal_X[i][t_j] + (tt)*thermal_X[i][t_j+1]                
+                new_y = (1.-tt)*thermal_Y[i][t_j] + (tt)*thermal_Y[i][t_j+1]
+                new_z = (1.-tt)*thermal_Z[i][t_j] + (tt)*thermal_Z[i][t_j+1]    
+                col = (1.-tt)*thermal_C[i][t_j] + (tt)*thermal_C[i][t_j+1]
+                thermals[i].pos = vector(new_x, new_y, new_z)
+
+                # update radius and opacity:            
+                thermals[i].opacity = np.clip((col-0)/3., 0.1, 1.)
+                thermals[i].radius = 100*(col)/3.
+
+            # follow pilot:
+            if follow_pilot is not None:
+                if prev_pos is not None:
+                    #print('follow pilot pos:', pilots[follow_pilot].pos, 'prevpos:', prev_pos)
+                    
+                    offset = pilots[follow_pilot].pos - prev_pos
+                    #print('camera pos', scene.camera.pos, '\toffset:', offset)                
+                    #scene.camera.pos.x += offset.x
+                    #scene.camera.pos.z += offset.z
+                    scene.camera.pos = vector(scene.camera.pos.x + offset.x, scene.camera.pos.y, scene.camera.pos.z+offset.z)
+                pos = pilots[follow_pilot].pos
+                prev_pos = vector(pos.x, pos.y, pos.z)
+            
                 
-                pilots[i].color = vector(r_val, g_val, b_val)
 
             t += dt
 
@@ -203,10 +435,12 @@ if __name__ == '__main__':
     # Swiss League Cup March
     airstart = datetime.time(12, 30) # UTC
     t_start = datetime.time(12, 15)
-    t_end = airstart    
+    t_end = datetime.time(12, 30)
     competition = CsvCompetition('dump/task_2025-03-08')
     competition.read_pilots(airstart, t_start, t_end)
-    competition.animate_pilots()
+    competition.compute_thermal_centroids()
+    #competition.plot_integrated_climb()
+    competition.animate_pilots(fix_pilot=True)
 
 
 

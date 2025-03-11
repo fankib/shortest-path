@@ -5,3 +5,7 @@ seaborn
 
 # kml:
 simplekml
+
+# sklearn:
+scikit-lern
+vpython
