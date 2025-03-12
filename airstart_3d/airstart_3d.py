@@ -11,8 +11,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from tqdm import tqdm
+from PIL import Image
 
-from vpython import scene, canvas, sphere, vector, rate, color, cylinder, text, label, box
+from vpython import scene, canvas, sphere, vector, rate, color, cylinder, text, label, box, textures
 
 from sklearn.cluster import KMeans, AgglomerativeClustering
 
@@ -80,8 +81,8 @@ class CsvPilot:
         self.filename = filename
         self.name = filename.split('.')[0]        
             
-    def process(self, airstart, start, end):
-        df = pd.read_csv(os.path.join(self.directory, self.filename))
+    def process(self, airstart, start, end, nrows=None):
+        df = pd.read_csv(os.path.join(self.directory, self.filename), nrows=nrows)
         # convert time
         df['time'] = df['time'].apply(lambda x: datetime.datetime.strptime(x, '%H:%M:%S').time())
         df['seconds'] = df['time'].apply(lambda t: as_seconds(t) - as_seconds(airstart))
@@ -153,7 +154,8 @@ class CsvCompetition:
             if filename.lower().endswith('.csv'):
                 pilot = CsvPilot(self.directory, filename)                
                 try:
-                    pilot.process(airstart, start, end)
+                    nrows = 2*60*60 # only first two hours
+                    pilot.process(airstart, start, end, nrows)
                     self.pilots.append(pilot)
                 except ValueError:
                     print(f'Pilot {pilot.name} error. Skip!')
@@ -273,7 +275,7 @@ class CsvCompetition:
         # Create Ground Box
         UTM_ZONE = 32
         UTM_LETTER = 'T'        
-        lat, lon = utm.to_latlon(top_left_x, -top_left_z, UTM_ZONE, UTM_LETTER)
+        lat, lon = utm.to_latlon(top_left_x, -top_left_z, UTM_ZONE, UTM_LETTER)        
         zoom = 13
         x, y, off_x, off_y = latlon_to_tile(lat, lon, zoom)
         print(f"Tile coordinates for zoom {zoom}: x = {x}, y = {y}, using the offset: {off_x}/{off_y}")        
@@ -281,6 +283,8 @@ class CsvCompetition:
         width, height = webmercator_tile_size(lat, zoom)
         off_x = (off_x-0.5)*width
         off_y = (off_y-0.5)*width
+        # print for elevation data:
+        print(f'get elevation at lat={lat}, lon={lon}, width={width}')        
         
         # create 3x3 grid
         grid_size = 1
@@ -288,7 +292,16 @@ class CsvCompetition:
         for coord in grid:
             i,j = coord
             ground_box = box(pos=vector(-center_offset_x-off_x+i*width, -1500, -center_offset_z-off_y+j*width), size=vector(width, 0.1, width))  # Box with ground level height
-            ground_box.texture = url = create_url(x+i, y+j, zoom)
+            ground_box.texture = create_url(x+i, y+j, zoom)
+            ground_box.bumpmap = "airstart_3d/swiss_cup_flex_march.png"
+
+            print(f"ground box: pos={ground_box.pos}")
+
+            #image = Image.open("/home/benjamin/Pictures/swiss_cup_flex_march.png")
+            #ground_box.texture = textures.texture(data=image)
+            #round_box.texture = "airstart_3d/swiss_cup_flex_march.png"
+
+
         
 
         #C = [pilot.df['gps_climb'].values for pilot in self.pilots]
@@ -440,7 +453,7 @@ if __name__ == '__main__':
     competition.read_pilots(airstart, t_start, t_end)
     competition.compute_thermal_centroids()
     #competition.plot_integrated_climb()
-    competition.animate_pilots(fix_pilot=True)
+    competition.animate_pilots(fix_pilot=False)
 
 
 

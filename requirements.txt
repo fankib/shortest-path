@@ -9,3 +9,4 @@ simplekml
 # sklearn:
 scikit-lern
 vpython
+rasterio
