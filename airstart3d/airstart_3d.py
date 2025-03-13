@@ -17,6 +17,8 @@ from vpython import scene, canvas, sphere, vector, rate, color, cylinder, text, 
 
 from sklearn.cluster import KMeans, AgglomerativeClustering
 
+from airstart3d.elevation import plot3D, read_elevation_data
+
 '''
 This Script reads the 3d data from the pilots in the start thermal.
 It interpolates the data and visualizes movements in 3d.
@@ -36,6 +38,13 @@ tile_server_url = "https://api.maptiler.com/maps/landscape/{z}/{x}/{y}.png?key=P
 
 def create_url(x, y, zoom):
     return tile_server_url.format(z=zoom, x=x, y=y)
+
+def tile_to_latlon(x_tile, y_tile, zoom):
+    n = 2.0 ** zoom
+    lon = (x_tile / n) * 360.0 - 180.0
+    lat_rad = math.atan(math.sinh(math.pi * (1 - 2 * (y_tile / n))))
+    lat = math.degrees(lat_rad)
+    return lat, lon
 
 TILE_SIZE = 512
 def latlon_to_tile(lat, lon, zoom):
@@ -258,40 +267,47 @@ class CsvCompetition:
 
         # access data more easily:
         X = [pilot.df['x'].values for pilot in self.pilots]
-        Y = [pilot.df['gps_alt'].values - 2500 for pilot in self.pilots]
+        Y = [pilot.df['gps_alt'].values for pilot in self.pilots]
         Z = [-pilot.df['y'].values for pilot in self.pilots]        
 
-        # compute initial centroids for X, Z:
-        center_x = np.array(X)[:, 0].mean()
-        center_z = np.array(Z)[:, 0].mean()
-        top_left_x = np.array(X).min()
-        top_left_z = np.array(Z).min()
-        center_offset_x = center_x - top_left_x
-        center_offset_z = center_z - top_left_z
-
-        X = [x-center_x for x in X]
-        Z = [z-center_z for z in Z]
+        # compute origin
+        origin = vector(np.array(X)[:, 0].mean(), 2500, np.array(Z)[:, 0].mean())
+        print('Origin at: ', origin)
+        
+        # find top-left positions for map
+        top_left = vector(np.array(X).min(), 1000, np.array(Z).min()) # move up and down here!
+        top_left_local = top_left - origin # in local coordinates, 
+        #center_offset_x = w - top_left_x
+        #center_offset_z = center_z - top_left_z
 
         # Create Ground Box
         UTM_ZONE = 32
         UTM_LETTER = 'T'        
-        lat, lon = utm.to_latlon(top_left_x, -top_left_z, UTM_ZONE, UTM_LETTER)        
+        lat, lon = utm.to_latlon(top_left.x, -top_left.z, UTM_ZONE, UTM_LETTER)        
         zoom = 13
         x, y, off_x, off_y = latlon_to_tile(lat, lon, zoom)
         print(f"Tile coordinates for zoom {zoom}: x = {x}, y = {y}, using the offset: {off_x}/{off_y}")        
+        width, height = webmercator_tile_size(lat, zoom)        
+        map_offset = vector((off_x-0.5)*width, 0, (off_y-0.5)*width) # offset form top-left to map-top_left
+        map_offset_elevation = vector(off_x*width, 0, off_y*width)
         
-        width, height = webmercator_tile_size(lat, zoom)
-        off_x = (off_x-0.5)*width
-        off_y = (off_y-0.5)*width
         # print for elevation data:
-        print(f'get elevation at lat={lat}, lon={lon}, width={width}')        
+        tile_lat, tile_lon = tile_to_latlon(x, y, zoom)
+        print(f'get elevation at lat={tile_lat}, lon={tile_lon}, width={width}')        
         
         # create 3x3 grid
         grid_size = 1
         grid = list(itertools.product(range(grid_size), repeat=2))
         for coord in grid:
             i,j = coord
-            ground_box = box(pos=vector(-center_offset_x-off_x+i*width, -1500, -center_offset_z-off_y+j*width), size=vector(width, 0.1, width))  # Box with ground level height
+            box_pos = top_left - map_offset # central position
+
+            # move in grid
+            box_pos.x += i*width
+            box_pos.z += j*width            
+            
+            # create ground box
+            ground_box = box(pos=box_pos-origin, size=vector(width, 0.1, width)) 
             ground_box.texture = create_url(x+i, y+j, zoom)
             ground_box.bumpmap = "airstart_3d/swiss_cup_flex_march.png"
 
@@ -302,7 +318,22 @@ class CsvCompetition:
             #round_box.texture = "airstart_3d/swiss_cup_flex_march.png"
 
 
+
+        # Elevation        
+        elevation_data = read_elevation_data(tile_lon, tile_lat, width)
+        assert elevation_data.shape[0] == elevation_data.shape[1], 'elevation must be square'
+        #def f(x, y):            
+        #    return elevation_data[x,y]        
+        f = lambda x,y: elevation_data[x,y] - origin.y
+
+        plot_pos = top_left_local - map_offset_elevation
         
+        # requires some funky transposition:
+        p = plot3D(f, elevation_data.shape[0],plot_pos.z, plot_pos.z+width, plot_pos.x, plot_pos.x+width, 0, 1000, texture=create_url(x, y, zoom))
+
+
+        # PIlOTS:
+
 
         #C = [pilot.df['gps_climb'].values for pilot in self.pilots]
         C = [pilot.df['pressure_climb'].values for pilot in self.pilots]
@@ -328,7 +359,7 @@ class CsvCompetition:
                 emissive = False
                 retain = 100
                 
-            sp = sphere(pos=vector(start_x, start_y, start_z),
+            sp = sphere(pos=vector(start_x, start_y, start_z)-origin,
                 radius=10,
                 make_trail=True, retain=retain, trail_radius=1,
                 emissive=emissive, color=start_c)
@@ -337,13 +368,13 @@ class CsvCompetition:
         # Add Massive Thermal Sphere
         #if self.df_thermals is not None:
         thermal_X = [df['x'].values for df in self.df_thermals]
-        thermal_Y = [df['gps_alt'].values - 2500 for df in self.df_thermals]
+        thermal_Y = [df['gps_alt'].values for df in self.df_thermals]
         thermal_Z = [-df['y'].values for df in self.df_thermals]
         thermal_C = [df['pressure_climb'].values for df in self.df_thermals]
         
         # center correction
-        thermal_X = [x-center_x for x in thermal_X]
-        thermal_Z = [z-center_z for z in thermal_Z]
+        #thermal_X = [x-center_x for x in thermal_X]
+        #thermal_Z = [z-center_z for z in thermal_Z]
 
         thermals = [sphere(pos=vector(0, 0, 0), radius=100, opacity=0.1, color=color.yellow) for _ in range(self.n_thermals)]
 
@@ -371,8 +402,10 @@ class CsvCompetition:
                     print('current camera:', scene.camera.pos)
                     break
 
-        # Run Animation!
-        # Animation loop
+        #################
+        # Run Animation!#
+        #################
+        
         t = 0
         # offset for pilot fixation
         prev_pos = None        
@@ -395,7 +428,8 @@ class CsvCompetition:
                 new_z = (1.-tt)*Z[i][t_j] + (tt)*Z[i][t_j+1]    
                 col = (1.-tt)*C[i][t_j] + (tt)*C[i][t_j+1]            
 
-                pilots[i].pos = vector(new_x, new_y, new_z)
+                pilots[i].pos = vector(new_x, new_y, new_z)-origin
+
 
                 #if i == 0 and tt < 0.1:
                 #    print('climb', climb)               
@@ -418,7 +452,7 @@ class CsvCompetition:
                 new_y = (1.-tt)*thermal_Y[i][t_j] + (tt)*thermal_Y[i][t_j+1]
                 new_z = (1.-tt)*thermal_Z[i][t_j] + (tt)*thermal_Z[i][t_j+1]    
                 col = (1.-tt)*thermal_C[i][t_j] + (tt)*thermal_C[i][t_j+1]
-                thermals[i].pos = vector(new_x, new_y, new_z)
+                thermals[i].pos = vector(new_x, new_y, new_z)-origin
 
                 # update radius and opacity:            
                 thermals[i].opacity = np.clip((col-0)/3., 0.1, 1.)
@@ -438,7 +472,7 @@ class CsvCompetition:
                 prev_pos = vector(pos.x, pos.y, pos.z)
             
                 
-
+            # update time
             t += dt
 
 
