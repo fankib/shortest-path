@@ -96,8 +96,8 @@ class plot3D:
                 
     def make_vertex(self,x,y,tex_x, tex_y, value):        
         #texpos = vector(tex_x/self.L, tex_y/self.L, 0)
-        texpos = vector(tex_y/self.L, tex_x/self.L, 0)
-        return vertex(pos=vec(y,value,x), texpos=texpos, shininess=0.1, normal=vec(0,1,0))
+        texpos = vector(tex_y/self.L, 1.-tex_x/self.L, 0)
+        return vertex(pos=vec(y,value,x), texpos=texpos, shininess=0.01, normal=vec(0,1,0))
         
     def get_vertex(self,x,y):
         return self.vertices[x*self.L+y]
@@ -135,6 +135,11 @@ def extract_elevation_from_tile(tile_path, lat, lon, grid_size_m=25):
 
 def read_elevation_data(lon, lat, width):
     tile_path = "/home/benjamin/Downloads/EU_DEM_mosaic_5deg/eudem_dem_4258_europe.tif"
+
+    import os.path
+    if not os.path.isfile(tile_path):
+        return np.load("airstart3d/elevation_data.npy")
+
     with rasterio.open(tile_path) as src:
         row, col = src.index(lon, lat)
         grid = int(width//25)
@@ -145,6 +150,14 @@ def read_elevation_data(lon, lat, width):
 
 if __name__ == '__main__':
         
+
+
+    # Setup Scene Lights
+    for i in range( 0, len(scene.lights) ):
+        LL = scene.lights[i]
+        LL.color *= 0.2
+        print( LL.pos, LL.direction, LL.color )        
+    scene.ambient = color.white * 0.5
 
     # Coordinates for Grindelwald, Switzerland
     #lat = 46.6242

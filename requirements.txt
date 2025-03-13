@@ -7,6 +7,6 @@ seaborn
 simplekml
 
 # sklearn:
-scikit-lern
+scikit-learn
 vpython
 rasterio

@@ -259,6 +259,13 @@ class CsvCompetition:
         # Setup Scene        
         scene = canvas(width=1920-50, height=1080-100, resizable=True, background=vector(44/255, 44/255, 45/255))
 
+        # Setup Scene Lights
+        for i in range( 0, len(scene.lights) ):
+            LL = scene.lights[i]
+            LL.color *= 0.2
+            print( LL.pos, LL.direction, LL.color )        
+        scene.ambient = color.white * 0.5
+
         # Simulation parameters
         speedup = 5
         dt = 0.5/speedup      # time step for the simulation
