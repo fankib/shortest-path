@@ -334,9 +334,13 @@ class CsvCompetition:
         f = lambda x,y: elevation_data[x,y] - origin.y
 
         plot_pos = top_left_local - map_offset_elevation
+      
+        shrink_height = height/width
+
+
         
         # requires some funky transposition:
-        p = plot3D(f, elevation_data.shape[0],plot_pos.z, plot_pos.z+width, plot_pos.x, plot_pos.x+width, 0, 1000, texture=create_url(x, y, zoom))
+        p = plot3D(f, elevation_data.shape[0],plot_pos.z+(width-width/shrink_height), plot_pos.z+(width-width/shrink_height)+width/shrink_height, plot_pos.x, plot_pos.x+width, 0, 1000, texture=create_url(x, y, zoom))
 
 
         # PIlOTS:
