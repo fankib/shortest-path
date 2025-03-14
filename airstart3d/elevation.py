@@ -156,7 +156,7 @@ def read_elevation_data_32632(x, y, width):
         grid = int(width//25)
         half_grid = grid // 2        
         window = rasterio.windows.Window(col, row, grid, grid)
-        data = src.read(1, window=window)   
+        data = src.read(1, window=window)
     
     # create contour texture:
     X = np.arange(grid)
