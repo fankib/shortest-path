@@ -133,12 +133,13 @@ def extract_elevation_from_tile(tile_path, lat, lon, grid_size_m=25):
         
         return elevation_data
 
-def read_elevation_data(lon, lat, width):
-    tile_path = "/home/benjamin/Downloads/EU_DEM_mosaic_5deg/eudem_dem_4258_europe.tif"
+def read_elevation_data_4258(lon, lat, width):
+    tile_path = "/home/benjamin/Downloads/EU_DEM_mosaic_5deg/eudem_dem_4258_europe.tif"    
 
-    import os.path
-    if not os.path.isfile(tile_path):
-        return np.load("airstart3d/elevation_data.npy")
+    # offline fix
+    #import os.path
+    #if not os.path.isfile(tile_path):
+    #    return np.load("airstart3d/elevation_data.npy")
 
     with rasterio.open(tile_path) as src:
         row, col = src.index(lon, lat)
@@ -146,7 +147,32 @@ def read_elevation_data(lon, lat, width):
         half_grid = grid // 2
         #window = rasterio.windows.Window(col-half_grid, row-half_grid, grid, grid)
         window = rasterio.windows.Window(col, row, grid, grid)
-        return src.read(1, window=window)    
+        return src.read(1, window=window)   
+
+def read_elevation_data_32632(x, y, width):
+    tile_path = "/home/benjamin/Downloads/EU_DEM_mosaic_5deg/eudem_dem_32632_switzerland.tif"
+    with rasterio.open(tile_path) as src:
+        row, col = src.index(x, y)
+        grid = int(width//25)
+        half_grid = grid // 2        
+        window = rasterio.windows.Window(col, row, grid, grid)
+        data = src.read(1, window=window)   
+    
+    # create contour texture:
+    X = np.arange(grid)
+    Y = -np.arange(grid)
+    X, Y = np.meshgrid(X, Y)
+    fig, ax = plt.subplots()
+    # iso lines:
+    ax.contour(X, Y, data, levels=np.arange(0, 4000, 50), vmin=500, vmax=3000)
+    #img = ax.imshow(elevation_data, cmap="gray", origin="upper")
+
+    ax.set_aspect('equal', adjustable='box')
+    ax.grid(False)
+    ax.axis('off')
+    plt.savefig(f'airstart3d/textures/contours/tile_{x}_{y}.png', dpi=150, bbox_inches='tight', pad_inches=0, transparent=False)
+    return data
+ 
 
 if __name__ == '__main__':
         
@@ -174,6 +200,12 @@ if __name__ == '__main__':
     width=3356.9786285001073
     #width *= 4
 
+    # x, y at top_left?
+    #x=420011.130248355
+    #y=5170090.784371755    
+    x = 420011
+    y = 5170090
+
     # 1. Determine the 5x5 degree tile for Grindelwald
     #lat_min, lon_min, lat_max, lon_max = get_tile_coordinates(lat, lon)
 
@@ -186,7 +218,10 @@ if __name__ == '__main__':
     #elevation_grid = extract_elevation_from_tile(tile_file_path, lat, lon)
     #print(f"Elevation grid (25x25m) for Grindelwald:\n{elevation_grid}")
 
-    elevation_data = read_elevation_data(lon, lat, width)
+    # old system
+    #elevation_data = read_elevation_data(lon, lat, width)
+    # proper projection
+    elevation_data = read_elevation_data_32632(x, y, width)
 
 
     USE_MATPLOTLIB = False

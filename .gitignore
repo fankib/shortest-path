@@ -1,6 +1,7 @@
 __pycache__/
 venv/
 node_modules/
+airstart3d/textures/contours
 
 *.zip
 

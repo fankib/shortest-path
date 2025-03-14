@@ -17,7 +17,7 @@ from vpython import scene, canvas, sphere, vector, rate, color, cylinder, text, 
 
 from sklearn.cluster import KMeans, AgglomerativeClustering
 
-from airstart3d.elevation import plot3D, read_elevation_data
+from airstart3d.elevation import plot3D, read_elevation_data_4258, read_elevation_data_32632
 
 '''
 This Script reads the 3d data from the pilots in the start thermal.
@@ -163,7 +163,8 @@ class CsvCompetition:
             if filename.lower().endswith('.csv'):
                 pilot = CsvPilot(self.directory, filename)                
                 try:
-                    nrows = 2*60*60 # only first two hours
+                    #nrows = 2*60*60 # only first two hours
+                    nrows = None
                     pilot.process(airstart, start, end, nrows)
                     self.pilots.append(pilot)
                 except ValueError:
@@ -284,8 +285,13 @@ class CsvCompetition:
         # find top-left positions for map
         top_left = vector(np.array(X).min(), 1000, np.array(Z).min()) # move up and down here!
         top_left_local = top_left - origin # in local coordinates, 
-        #center_offset_x = w - top_left_x
-        #center_offset_z = center_z - top_left_z
+
+        # use benjamin as top_left:
+        print('top-left: ', self.pilots[69].name)
+        top_left = vector(X[69][0], 1000, Z[69][0])        
+        top_left_local = top_left - origin # in local coordinates,
+        
+        
 
         # Create Ground Box
         UTM_ZONE = 32
@@ -300,7 +306,39 @@ class CsvCompetition:
         
         # print for elevation data:
         tile_lat, tile_lon = tile_to_latlon(x, y, zoom)
-        print(f'get elevation at lat={tile_lat}, lon={tile_lon}, width={width}')        
+        #print(f'get elevation at lat={tile_lat}, lon={tile_lon}, width={width}')  
+        tile_utm_x, tile_utm_y, _, _ = utm.from_latlon(tile_lat, tile_lon)    
+        #print(f'pos of 32632 elevation: x={tile_utm_x}, y={tile_utm_y}')      
+
+        # create a grid for our elevation plots
+        width = 2500 # use 5km plots
+        grid_size = 2
+        grid = list(itertools.product(range(grid_size), repeat=2))
+        for coord in grid:
+            i,j = coord
+
+            # Elevation        
+            #elevation_data = read_elevation_data_4258(tile_lon, tile_lat, width)
+            tile_x = (tile_utm_x+i*width)
+            tile_y = (tile_utm_y-j*width)
+            elevation_data = read_elevation_data_32632(tile_x, tile_y, width+50)
+            assert elevation_data.shape[0] == elevation_data.shape[1], 'elevation must be square'
+            #def f(x, y):            
+            #    return elevation_data[x,y]        
+            f = lambda x,y: elevation_data[x,y] - origin.y
+
+            plot_pos = top_left_local - map_offset_elevation
+            plot_pos += vector(i*width, 0, j*width)
+        
+            # distort the elevation to match the texture, hmmm.
+            #shrink_height = height/width
+            # requires some funky transposition:
+            #p = plot3D(f, elevation_data.shape[0],plot_pos.z+(width-width/shrink_height), plot_pos.z+(width-width/shrink_height)+width/shrink_height, plot_pos.x, plot_pos.x+width, 0, 1000, texture=create_url(x, y, zoom))
+            
+            # no texture and correct shape
+            texture = f'airstart3d/textures/contours/tile_{tile_x}_{tile_y}.png'
+            p = plot3D(f, elevation_data.shape[0] ,plot_pos.z, plot_pos.z+width+50 , plot_pos.x, plot_pos.x+width+50, 0, 1000, texture=texture)
+
         
         # create 3x3 grid
         grid_size = 1
@@ -311,7 +349,7 @@ class CsvCompetition:
 
             # move in grid
             box_pos.x += i*width
-            box_pos.z += j*width            
+            box_pos.z += j*width          
             
             # create ground box
             ground_box = box(pos=box_pos-origin, size=vector(width, 0.1, width)) 
@@ -325,22 +363,6 @@ class CsvCompetition:
             #round_box.texture = "airstart_3d/swiss_cup_flex_march.png"
 
 
-
-        # Elevation        
-        elevation_data = read_elevation_data(tile_lon, tile_lat, width)
-        assert elevation_data.shape[0] == elevation_data.shape[1], 'elevation must be square'
-        #def f(x, y):            
-        #    return elevation_data[x,y]        
-        f = lambda x,y: elevation_data[x,y] - origin.y
-
-        plot_pos = top_left_local - map_offset_elevation
-      
-        shrink_height = height/width
-
-
-        
-        # requires some funky transposition:
-        p = plot3D(f, elevation_data.shape[0],plot_pos.z+(width-width/shrink_height), plot_pos.z+(width-width/shrink_height)+width/shrink_height, plot_pos.x, plot_pos.x+width, 0, 1000, texture=create_url(x, y, zoom))
 
 
         # PIlOTS:
@@ -492,8 +514,8 @@ if __name__ == '__main__':
 
     # Swiss League Cup March
     airstart = datetime.time(12, 30) # UTC
-    t_start = datetime.time(12, 15)
-    t_end = datetime.time(12, 30)
+    t_start = datetime.time(13, 55)
+    t_end = datetime.time(14, 5)
     competition = CsvCompetition('dump/task_2025-03-08')
     competition.read_pilots(airstart, t_start, t_end)
     competition.compute_thermal_centroids()
